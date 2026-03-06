@@ -1,8 +1,6 @@
 """
-================================================================================
 AUTOMATIZACIÓN DE REGISTRO MASIVO - ALTERNATIVA LIBERAL POPULAR
-Backend Flask — Código original + interfaz web
-================================================================================
+Versión optimizada para Render / Linux
 """
 
 from flask import Flask, render_template, request, jsonify, send_file
@@ -14,33 +12,38 @@ import tempfile
 import time
 import os
 import json
+
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
+
 import undetected_chromedriver as uc
+
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'alp-secret-2024'
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# ── Archivos temporales compatibles Windows/Linux ──────────
-TEMP_DIR    = tempfile.gettempdir()
-DATOS_JSON  = os.path.join(TEMP_DIR, 'datos_proceso.json')
+
+TEMP_DIR = tempfile.gettempdir()
+DATOS_JSON = os.path.join(TEMP_DIR, 'datos_proceso.json')
 ERRORES_XLS = os.path.join(TEMP_DIR, 'NO_SUBIDOS.xlsx')
 
-# ── Estado global ──────────────────────────────────────────
-proceso_activo    = False
+proceso_activo = False
 proceso_cancelado = False
 
+
 COLUMNAS_REQUERIDAS = {
-    "CEDULA", "NOMBRES", "APELLIDOS",
-    "TELEFONO", "DIRECCION", "DEPARTAMENTO", "MUNICIPIO"
+    "CEDULA",
+    "NOMBRES",
+    "APELLIDOS",
+    "TELEFONO",
+    "DIRECCION",
+    "DEPARTAMENTO",
+    "MUNICIPIO"
 }
 
 
-# ==============================================================================
-# FUNCIÓN AUXILIAR — igual que en automa.py original
-# ==============================================================================
 def normalizar(texto):
     return ''.join(
         c for c in unicodedata.normalize('NFD', str(texto))
@@ -54,18 +57,14 @@ def log(msg, tipo="info"):
 
 def progreso(actual, total, cedula="", depto="", municipio=""):
     socketio.emit('progreso', {
-        'actual':      actual,
-        'total':       total,
-        'cedula':      cedula,
-        'depto':       depto,
-        'municipio':   municipio,
-        'porcentaje':  round((actual / total) * 100) if total > 0 else 0
+        'actual': actual,
+        'total': total,
+        'cedula': cedula,
+        'depto': depto,
+        'municipio': municipio,
+        'porcentaje': round((actual / total) * 100) if total > 0 else 0
     })
 
-
-# ==============================================================================
-# RUTAS FLASK
-# ==============================================================================
 
 @app.route('/')
 def index():
@@ -74,14 +73,14 @@ def index():
 
 @app.route('/validar-excel', methods=['POST'])
 def validar_excel():
+
     if 'file' not in request.files:
         return jsonify({'ok': False, 'error': 'No se recibió archivo'})
 
     file = request.files['file']
-    if file.filename == '':
-        return jsonify({'ok': False, 'error': 'Nombre de archivo vacío'})
 
     try:
+
         df = pd.read_excel(file)
         df.columns = [normalizar(col) for col in df.columns]
 
@@ -90,22 +89,19 @@ def validar_excel():
 
         if columnas_faltantes:
             return jsonify({
-                'ok':          False,
-                'faltantes':   sorted(list(columnas_faltantes)),
-                'encontradas': list(df.columns),
-                'requeridas':  sorted(list(COLUMNAS_REQUERIDAS))
+                'ok': False,
+                'faltantes': sorted(list(columnas_faltantes))
             })
 
         if df.empty:
-            return jsonify({'ok': False, 'error': 'El archivo no contiene filas de datos'})
+            return jsonify({'ok': False, 'error': 'Archivo sin datos'})
 
         df.to_json(DATOS_JSON, orient='records', force_ascii=False)
 
         return jsonify({
-            'ok':      True,
-            'total':   len(df),
-            'columnas': list(df.columns),
-            'preview':  df.head(3).to_dict(orient='records')
+            'ok': True,
+            'total': len(df),
+            'preview': df.head(3).to_dict(orient='records')
         })
 
     except Exception as e:
@@ -114,25 +110,22 @@ def validar_excel():
 
 @app.route('/iniciar', methods=['POST'])
 def iniciar():
+
     global proceso_activo, proceso_cancelado
 
     if proceso_activo:
-        return jsonify({'ok': False, 'error': 'Ya hay un proceso en curso'})
+        return jsonify({'ok': False, 'error': 'Proceso ya activo'})
 
     data = request.json
     codigo_referido = data.get('codigo_referido', '').strip()
 
-    if not codigo_referido:
-        return jsonify({'ok': False, 'error': 'Código de referido requerido'})
-
     if not os.path.exists(DATOS_JSON):
-        return jsonify({'ok': False, 'error': 'No hay datos cargados. Sube el Excel primero.'})
+        return jsonify({'ok': False, 'error': 'Sube primero el Excel'})
 
-    proceso_activo    = True
+    proceso_activo = True
     proceso_cancelado = False
 
     thread = threading.Thread(target=ejecutar_proceso, args=(codigo_referido,))
-    thread.daemon = True
     thread.start()
 
     return jsonify({'ok': True})
@@ -142,208 +135,135 @@ def iniciar():
 def cancelar():
     global proceso_cancelado
     proceso_cancelado = True
-    log('⛔ Cancelación solicitada por el usuario...', 'warning')
+    log("Cancelación solicitada", "warning")
     return jsonify({'ok': True})
 
 
 @app.route('/descargar-errores')
 def descargar_errores():
     if os.path.exists(ERRORES_XLS):
-        return send_file(ERRORES_XLS, as_attachment=True, download_name='NO_SUBIDOS.xlsx')
-    return jsonify({'error': 'No hay archivo de errores'}), 404
+        return send_file(ERRORES_XLS, as_attachment=True)
+    return jsonify({'error': 'No existe archivo'})
 
 
-# ==============================================================================
-# PROCESO SELENIUM — lógica 100% original de automa.py
-# ==============================================================================
+def iniciar_driver():
+
+    options = uc.ChromeOptions()
+
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--window-size=1920,1080")
+
+    driver = uc.Chrome(options=options)
+
+    return driver
+
+
 def ejecutar_proceso(codigo_referido):
-    global proceso_activo, proceso_cancelado
+
+    global proceso_activo
 
     errores_definitivos = []
 
     try:
+
         with open(DATOS_JSON, 'r', encoding='utf-8') as f:
             registros = json.load(f)
 
-        df    = pd.DataFrame(registros)
+        df = pd.DataFrame(registros)
+
         total = len(df)
 
-        log(f'🚀 Iniciando proceso con {total} registros...', 'success')
-        log(f'🔑 Código de referido: {codigo_referido}', 'info')
+        log(f"Iniciando proceso con {total} registros", "success")
 
-        # ── Mismas opciones que automa.py original ─────────────────────────
-        options = uc.ChromeOptions()
-        options.add_argument("--start-maximized")
+        driver = iniciar_driver()
 
-        driver = uc.Chrome(options=options, version_main=145)
-        driver.set_window_position(0, 0)
+        wait = WebDriverWait(driver, 20)
 
-        wait   = WebDriverWait(driver, 20)
         errores = []
-        exitos  = []
+        exitos = []
 
-        try:
-            driver.get("https://dos.alternativaliberalpopular.org/registro.php")
-            time.sleep(3)
+        driver.get("https://dos.alternativaliberalpopular.org/registro.php")
 
-            # ── PRIMERA VUELTA ─────────────────────────────────────────────
-            for index, row in df.iterrows():
-                if proceso_cancelado:
-                    log('⛔ Proceso cancelado.', 'warning')
-                    break
+        for index, row in df.iterrows():
 
-                cedula = str(row["CEDULA"]).replace(".", "").strip()
+            if proceso_cancelado:
+                break
 
-                try:
-                    nombres      = str(row["NOMBRES"]).strip()
-                    apellidos    = str(row["APELLIDOS"]).strip()
-                    telefono     = str(row["TELEFONO"]).replace(".0", "").strip()
-                    direccion    = str(row["DIRECCION"]).strip()
-                    departamento = str(row["DEPARTAMENTO"]).strip().upper()
-                    municipio    = str(row["MUNICIPIO"]).strip().upper()
+            cedula = str(row["CEDULA"]).replace(".", "")
 
-                    wait.until(EC.presence_of_element_located((By.NAME, "identification")))
+            try:
 
-                    driver.find_element(By.NAME, "identification").clear()
-                    driver.find_element(By.NAME, "identification").send_keys(cedula)
-                    time.sleep(1)
+                nombres = str(row["NOMBRES"])
+                apellidos = str(row["APELLIDOS"])
+                telefono = str(row["TELEFONO"]).replace(".0", "")[:10]
+                direccion = str(row["DIRECCION"])
+                departamento = str(row["DEPARTAMENTO"]).upper()
+                municipio = str(row["MUNICIPIO"]).upper()
 
-                    driver.find_element(By.NAME, "identification_confirm").clear()
-                    driver.find_element(By.NAME, "identification_confirm").send_keys(cedula)
-                    time.sleep(0.5)
+                wait.until(EC.presence_of_element_located((By.NAME, "identification")))
 
-                    driver.find_element(By.NAME, "name").send_keys(nombres)
-                    driver.find_element(By.NAME, "lastName").send_keys(apellidos)
+                driver.find_element(By.NAME, "identification").send_keys(cedula)
+                driver.find_element(By.NAME, "identification_confirm").send_keys(cedula)
 
-                    telefono = telefono[:10]
-                    driver.find_element(By.NAME, "cellPhone").send_keys(telefono)
+                driver.find_element(By.NAME, "name").send_keys(nombres)
+                driver.find_element(By.NAME, "lastName").send_keys(apellidos)
 
-                    Select(driver.find_element(By.NAME, "department")).select_by_visible_text(departamento)
-                    wait.until(lambda d: len(Select(d.find_element(By.NAME, "municipalityid")).options) > 1)
+                driver.find_element(By.NAME, "cellPhone").send_keys(telefono)
 
-                    municipio_select = Select(driver.find_element(By.NAME, "municipalityid"))
-                    municipio_select.select_by_visible_text(municipio)
-                    time.sleep(0.5)
+                Select(driver.find_element(By.NAME, "department")).select_by_visible_text(departamento)
 
-                    driver.find_element(By.NAME, "neighborhood").send_keys("Centro")
-                    driver.find_element(By.NAME, "direction").send_keys(direccion)
-                    driver.find_element(By.NAME, "whoInvited").send_keys(codigo_referido)
+                wait.until(lambda d: len(Select(d.find_element(By.NAME, "municipalityid")).options) > 1)
 
-                    checkbox = wait.until(EC.element_to_be_clickable((By.ID, "terminos")))
-                    driver.execute_script("arguments[0].click();", checkbox)
-                    time.sleep(0.5)
+                Select(driver.find_element(By.NAME, "municipalityid")).select_by_visible_text(municipio)
 
-                    boton = wait.until(EC.element_to_be_clickable((By.ID, "btnRegistrar")))
-                    driver.execute_script("arguments[0].click();", boton)
+                driver.find_element(By.NAME, "neighborhood").send_keys("Centro")
+                driver.find_element(By.NAME, "direction").send_keys(direccion)
+                driver.find_element(By.NAME, "whoInvited").send_keys(codigo_referido)
 
-                    log(f'✔ [{index+1}/{total}] Enviado: {cedula} — {departamento} / {municipio}', 'success')
-                    exitos.append(cedula)
-                    progreso(len(exitos), total, cedula, departamento, municipio)
+                checkbox = wait.until(EC.element_to_be_clickable((By.ID, "terminos")))
+                driver.execute_script("arguments[0].click();", checkbox)
 
-                    time.sleep(6)
-                    driver.get("https://dos.alternativaliberalpopular.org/registro.php")
-                    time.sleep(3)
+                boton = wait.until(EC.element_to_be_clickable((By.ID, "btnRegistrar")))
+                driver.execute_script("arguments[0].click();", boton)
 
-                except Exception as e:
-                    log(f'❌ [{index+1}/{total}] Error con {cedula}: {e}', 'error')
-                    errores.append(row)
-                    driver.get("https://dos.alternativaliberalpopular.org/registro.php")
-                    time.sleep(3)
+                exitos.append(cedula)
 
-            # ── SEGUNDA VUELTA ─────────────────────────────────────────────
-            log('🔁 Intentando nuevamente los fallidos...', 'warning')
+                progreso(len(exitos), total)
 
-            for i, row in enumerate(errores):
-                if proceso_cancelado:
-                    break
+                log(f"Enviado {cedula}", "success")
 
-                cedula       = str(row["CEDULA"]).replace(".", "").strip()
-                departamento = str(row["DEPARTAMENTO"]).strip().upper()
-                municipio    = str(row["MUNICIPIO"]).strip().upper()
+                time.sleep(6)
 
-                try:
-                    wait.until(EC.presence_of_element_located((By.NAME, "identification")))
+                driver.get("https://dos.alternativaliberalpopular.org/registro.php")
 
-                    driver.find_element(By.NAME, "identification").clear()
-                    driver.find_element(By.NAME, "identification").send_keys(cedula)
-                    time.sleep(1)
+            except Exception as e:
 
-                    driver.find_element(By.NAME, "identification_confirm").clear()
-                    driver.find_element(By.NAME, "identification_confirm").send_keys(cedula)
-                    time.sleep(0.5)
+                errores.append(row)
 
-                    driver.find_element(By.NAME, "name").send_keys(str(row["NOMBRES"]))
-                    driver.find_element(By.NAME, "lastName").send_keys(str(row["APELLIDOS"]))
+                log(f"Error {cedula} {e}", "error")
 
-                    telefono = str(row["TELEFONO"]).replace(".0", "")[:10]
-                    driver.find_element(By.NAME, "cellPhone").send_keys(telefono)
+        if errores:
 
-                    Select(driver.find_element(By.NAME, "department")).select_by_visible_text(departamento)
-                    wait.until(lambda d: len(Select(d.find_element(By.NAME, "municipalityid")).options) > 1)
+            pd.DataFrame(errores).to_excel(ERRORES_XLS, index=False)
 
-                    municipio_select = Select(driver.find_element(By.NAME, "municipalityid"))
-                    municipio_select.select_by_visible_text(municipio)
-                    time.sleep(0.5)
+        driver.quit()
 
-                    driver.find_element(By.NAME, "neighborhood").send_keys("Centro")
-                    driver.find_element(By.NAME, "direction").send_keys(str(row["DIRECCION"]))
-                    driver.find_element(By.NAME, "whoInvited").send_keys(codigo_referido)
-
-                    checkbox = wait.until(EC.element_to_be_clickable((By.ID, "terminos")))
-                    driver.execute_script("arguments[0].click();", checkbox)
-                    time.sleep(0.5)
-
-                    boton = wait.until(EC.element_to_be_clickable((By.ID, "btnRegistrar")))
-                    driver.execute_script("arguments[0].click();", boton)
-
-                    log(f'✅ [{i+1}/{len(errores)}] Recuperado: {cedula} — {departamento} / {municipio}', 'success')
-
-                    time.sleep(6)
-                    driver.get("https://dos.alternativaliberalpopular.org/registro.php")
-                    time.sleep(3)
-
-                except Exception as e:
-                    log(f'⛔ [{i+1}/{len(errores)}] No se pudo subir: {cedula} — {e}', 'error')
-                    errores_definitivos.append(row)
-                    driver.get("https://dos.alternativaliberalpopular.org/registro.php")
-                    time.sleep(3)
-
-            # ── EXPORTAR FALLIDOS ──────────────────────────────────────────
-            if errores_definitivos:
-                pd.DataFrame(errores_definitivos).to_excel(ERRORES_XLS, index=False)
-                log('📁 Archivo NO_SUBIDOS.xlsx listo para descargar.', 'warning')
-
-        finally:
-            driver.quit()  # ← igual que automa.py original, evita WinError 6
-
-        # ── RESUMEN FINAL ──────────────────────────────────────────────────
-        log('========== RESUMEN FINAL ==========', 'info')
-        log(f'📥 Total procesados  : {total}', 'info')
-        log(f'✔  Exitosos          : {len(exitos)}', 'success')
-        log(f'🔁 Reintentados      : {len(errores)}', 'warning')
-        log(f'❌ Fallidos definitiv: {len(errores_definitivos)}', 'error')
-        log(f'🔑 Código referido   : {codigo_referido}', 'info')
-        log('====================================', 'info')
-        log('🏁 Proceso terminado.', 'success')
-
-        socketio.emit('resumen', {
-            'total':              total,
-            'exitos':             len(exitos),
-            'errores':            len(errores),
-            'definitivos':        len(errores_definitivos),
-            'tiene_errores_xlsx': os.path.exists(ERRORES_XLS)
-        })
+        log("Proceso finalizado", "success")
 
     except Exception as e:
-        log(f'💥 Error crítico: {e}', 'error')
+
+        log(f"Error crítico {e}", "error")
 
     finally:
+
         proceso_activo = False
 
 
-# ==============================================================================
-
-
 if __name__ == "__main__":
+
     port = int(os.environ.get("PORT", 10000))
+
     socketio.run(app, host="0.0.0.0", port=port)
