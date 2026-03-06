@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro Masivo — ALP</title>
+
+<!-- FAVICON SVG inline -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2316a34a'/><stop offset='1' stop-color='%230d9488'/></linearGradient></defs><text x='6' y='23' font-family='Arial Black,sans-serif' font-size='16' font-weight='900' fill='white'>A</text></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+:root {
+  --verde:#16a34a; --verde-l:#22c55e; --verde-xl:#bbf7d0; --verde-bg:#f0fdf4;
+  --teal:#0d9488; --teal-bg:#f0fdfa;
+  --fondo:#f8fafc; --fondo-2:#f1f5f9; --blanco:#ffffff;
+  --borde:#e2e8f0; --borde-m:#cbd5e1;
+  --texto:#0f172a; --texto-2:#334155; --texto-3:#64748b; --texto-4:#94a3b8;
+  --rojo:#dc2626; --rojo-bg:#fef2f2; --rojo-bd:#fecaca;
+  --naranja:#d97706; --naranja-bg:#fffbeb;
+  --azul:#0284c7;
+  --sh-s:0 2px 8px rgba(15,23,42,.07); --sh-m:0 4px 20px rgba(15,23,42,.12);
+  --sh-l:0 12px 40px rgba(15,23,42,.15); --sh-v:0 4px 20px rgba(22,163,74,.22);
+  --r:10px; --rs:7px; --rl:14px;
+  --t:.18s cubic-bezier(.4,0,.2,1);
+}
+[data-theme="dark"]{
+  --fondo:#0b1120; --fondo-2:#111827; --blanco:#1a2540;
+  --borde:#1e2d45; --borde-m:#2a3f5f;
+  --texto:#f1f5f9; --texto-2:#cbd5e1; --texto-3:#94a3b8; --texto-4:#64748b;
+  --verde-bg:#052e16; --teal-bg:#042f2e;
+  --rojo-bg:#1c0a0a; --rojo-bd:#7f1d1d; --naranja-bg:#1c1000;
+  --sh-s:0 2px 8px rgba(0,0,0,.3); --sh-m:0 4px 16px rgba(0,0,0,.4); --sh-l:0 12px 40px rgba(0,0,0,.55);
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow-x:hidden}
+body{
+  font-family:'Plus Jakarta Sans',sans-serif;
+  background:var(--fondo);color:var(--texto);
+  -webkit-font-smoothing:antialiased;
+  display:flex;flex-direction:column;
+  transition:background var(--t),color var(--t);
+}
+
+/* SVG icon base */
+svg.ico{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* ── ANIMACIONES GLOBALES ──────────────────────────────── */
+@keyframes fadeUp   {from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fadeIn   {from{opacity:0}to{opacity:1}}
+@keyframes scaleIn  {from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+@keyframes slideR   {from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes pop      {0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
+@keyframes shimmer  {0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes pr       {0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 6px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+@keyframes sp       {to{transform:rotate(360deg)}}
+@keyframes sh       {0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}
+@keyframes shake    {0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+@keyframes li       {from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+@keyframes mi       {from{opacity:0;transform:scale(.88) translateY(18px)}to{opacity:1;transform:none}}
+@keyframes bi       {0%{transform:scale(.3) rotate(-15deg);opacity:0}70%{transform:scale(1.1) rotate(3deg)}100%{transform:none;opacity:1}}
+@keyframes numPop   {0%{transform:scale(1)}40%{transform:scale(1.28)}100%{transform:scale(1)}}
+@keyframes glow     {0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.3)}50%{box-shadow:0 0 16px 4px rgba(22,163,74,.18)}}
+@keyframes barIn    {from{width:0}to{width:var(--w,100%)}}
+@keyframes dotPulse {0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ── HEADER ─────────────────────────────────────────── */
+header{
+  height:52px;min-height:52px;flex-shrink:0;
+  padding:0 1.25rem;
+  display:flex;align-items:center;gap:.75rem;
+  background:var(--blanco);border-bottom:1px solid var(--borde);
+  box-shadow:var(--sh-s);position:relative;z-index:10;
+  animation:fadeIn .4s ease both;
+}
+.menu-btn{
+  display:none;width:30px;height:30px;border-radius:6px;
+  align-items:center;justify-content:center;
+  cursor:pointer;color:var(--texto-3);
+  transition:background var(--t),color var(--t),transform var(--t);
+}
+.menu-btn:hover{background:var(--fondo-2);color:var(--texto);transform:scale(1.08)}
+
+.menu-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .2s;z-index:900}
+.menu-overlay.show{opacity:1;pointer-events:auto}
+
+.logo-mark{
+  width:32px;height:32px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--verde),var(--teal));
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:.7rem;color:#fff;
+  box-shadow:var(--sh-v);
+  transition:transform var(--t),box-shadow var(--t);
+  cursor:default;
+}
+.logo-mark:hover{transform:scale(1.1) rotate(-4deg);box-shadow:0 6px 20px rgba(22,163,74,.35)}
+.logo-info{display:flex;flex-direction:column;line-height:1.2;min-width:0}
+.logo-info strong{font-weight:800;font-size:.82rem;letter-spacing:-.01em;white-space:nowrap}
+.logo-info span{font-size:.6rem;color:var(--texto-3);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:.55rem;flex-shrink:0}
+
+.pill{
+  display:flex;align-items:center;gap:.4rem;
+  padding:.25rem .7rem;border-radius:100px;
+  background:var(--fondo-2);border:1px solid var(--borde);
+  font-size:.66rem;font-weight:600;color:var(--texto-3);
+  transition:all .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;
+}
+.pill.on{background:var(--verde-bg);border-color:var(--verde-xl);color:var(--verde);animation:glow 2s ease-in-out infinite}
+.puntito{width:6px;height:6px;border-radius:50%;background:var(--texto-4);flex-shrink:0;transition:all var(--t)}
+.pill.on .puntito{background:var(--verde);animation:pr 1.5s ease-in-out infinite}
+
+.icon-btn{
+  width:30px;height:30px;border-radius:7px;flex-shrink:0;
+  background:var(--fondo-2);border:1px solid var(--borde);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all var(--t);color:var(--texto-3);
+  position:relative;overflow:hidden;
+}
+.icon-btn::after{
+  content:'';position:absolute;inset:0;border-radius:7px;
+  background:radial-gradient(circle at center,rgba(22,163,74,.15),transparent 70%);
+  opacity:0;transition:opacity .2s;
+}
+.icon-btn:hover{background:var(--borde);transform:scale(1.1);color:var(--texto)}
+.icon-btn:hover::after{opacity:1}
+.icon-btn svg{width:15px;height:15px;transition:transform .3s cubic-bezier(.34,1.56,.64,1)}
+.icon-btn:hover svg{transform:rotate(20deg) scale(1.1)}
+
+/* ── GRID ────────────────────────────────────────────── */
+.grid{flex:1;display:grid;grid-template-columns:minmax(260px,22vw) 1fr;overflow:hidden}
+
+/* ── SIDEBAR ─────────────────────────────────────────── */
+.sidebar{
+  background:var(--blanco);border-right:1px solid var(--borde);
+  display:flex;flex-direction:column;
+  overflow:hidden;overflow-y:auto;
+  padding:.75rem 1rem;gap:.55rem;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+  animation:fadeIn .45s ease both;
+}
+.sidebar-close{
+  display:none;align-self:flex-end;
+  cursor:pointer;padding:.3rem;border-radius:6px;
+  color:var(--texto-3);transition:background var(--t),color var(--t),transform var(--t);
+}
+.sidebar-close:hover{background:var(--fondo-2);color:var(--texto);transform:rotate(90deg)}
+.sidebar-close svg{width:18px;height:18px}
+
+/* ── BLOQUE ──────────────────────────────────────────── */
+.bloque{
+  background:var(--fondo);border:1.5px solid var(--borde);
+  border-radius:var(--rl);padding:.75rem .9rem;
+  flex-shrink:0;
+  transition:border-color .25s,box-shadow .25s,transform .2s;
+  animation:fadeUp .4s ease both;
+}
+.bloque:nth-child(2){animation-delay:.05s}
+.bloque:nth-child(3){animation-delay:.1s}
+.bloque:hover{border-color:var(--borde-m);box-shadow:var(--sh-m);transform:translateY(-1px)}
+.bloque-title{
+  font-weight:700;font-size:.73rem;color:var(--texto-2);
+  display:flex;align-items:center;gap:.4rem;margin-bottom:.55rem;
+}
+.num-badge{
+  width:19px;height:19px;border-radius:5px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--verde),var(--teal));
+  color:#fff;font-weight:800;font-size:.6rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1);
+}
+.bloque:hover .num-badge{transform:scale(1.2) rotate(-5deg)}
+
+/* ── DROP ZONE ───────────────────────────────────────── */
+.drop{
+  border:2px dashed var(--borde-m);border-radius:var(--r);
+  padding:.9rem .85rem;text-align:center;cursor:pointer;
+  transition:all .25s cubic-bezier(.4,0,.2,1);
+  background:var(--fondo-2);user-select:none;
+  position:relative;overflow:hidden;
+}
+.drop::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(22,163,74,.04),rgba(13,148,136,.04));
+  opacity:0;transition:opacity .3s;
+}
+.drop:hover::before,.drop.over::before{opacity:1}
+.drop:hover,.drop.over{border-color:var(--verde);background:var(--verde-bg);box-shadow:0 0 0 3px rgba(22,163,74,.1),var(--sh-s)}
+.drop.ok{border-style:solid;border-color:var(--verde);background:var(--verde-bg)}
+.drop.fail{border-style:solid;border-color:var(--rojo);background:var(--rojo-bg);animation:shake .35s ease}
+
+.drop-ico{
+  width:38px;height:38px;border-radius:10px;
+  background:var(--blanco);border:1.5px solid var(--borde);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto .55rem;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);box-shadow:var(--sh-s);
+  color:var(--texto-3);
+}
+.drop-ico svg{width:18px;height:18px}
+.drop:hover .drop-ico,.drop.over .drop-ico{transform:scale(1.12) translateY(-3px);box-shadow:var(--sh-m)}
+.drop-ico.c-ok{color:var(--verde);border-color:var(--verde-xl);background:var(--verde-bg);animation:pop .4s ease}
+.drop-ico.c-fail{color:var(--rojo);border-color:var(--rojo-bd);background:var(--rojo-bg);animation:shake .4s ease}
+.drop-ico.c-warn{color:var(--naranja)}
+.drop-ico.c-load{color:var(--azul)}
+.drop-ico.c-load svg{animation:sp .8s linear infinite}
+
+.drop-tit{
+  font-weight:700;font-size:.75rem;color:var(--texto);margin-bottom:.18rem;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;padding:0 .25rem;
+  transition:color .2s;
+}
+.drop-sub{
+  font-size:.62rem;color:var(--texto-3);
+  display:flex;align-items:center;justify-content:center;
+  gap:.3rem;flex-wrap:wrap;overflow:hidden;max-width:100%;
+}
+.drop-sub .filename{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;display:inline-block;vertical-align:bottom}
+.fmt{
+  background:var(--blanco);border:1px solid var(--borde-m);color:var(--texto-3);
+  font-size:.57rem;font-weight:600;padding:.1rem .38rem;border-radius:3px;
+  font-family:'JetBrains Mono',monospace;text-transform:uppercase;
+  transition:all .2s;
+}
+.drop:hover .fmt{border-color:var(--verde-xl);color:var(--verde)}
+#fi{display:none}
+
+/* ── RESULTADO VALIDACIÓN ────────────────────────────── */
+.res{display:none;border-radius:var(--rs);padding:.5rem .65rem;font-size:.68rem;margin-top:.45rem;flex-shrink:0}
+.res.ok{display:block;background:var(--verde-bg);border:1.5px solid var(--verde-xl);animation:scaleIn .25s ease}
+.res.fail{display:block;background:var(--rojo-bg);border:1.5px solid var(--rojo-bd);animation:scaleIn .25s ease}
+.res-head{font-weight:700;font-size:.7rem;margin-bottom:.3rem;display:flex;align-items:center;gap:.3rem}
+.res-head svg{width:13px;height:13px;flex-shrink:0}
+.ok-c{color:var(--verde)} .fail-c{color:var(--rojo)}
+.tags{display:flex;flex-wrap:wrap;gap:.25rem;margin-top:.3rem}
+.tag{
+  padding:.1rem .4rem;border-radius:3px;font-size:.57rem;font-weight:600;
+  text-transform:uppercase;font-family:'JetBrains Mono',monospace;
+  animation:fadeIn .2s ease both;
+  transition:transform .15s;
+}
+.tag:hover{transform:scale(1.06)}
+.t-ok{background:rgba(22,163,74,.12);color:var(--verde);border:1px solid rgba(22,163,74,.25)}
+.t-fail{background:rgba(220,38,38,.1);color:var(--rojo);border:1px solid rgba(220,38,38,.25)}
+.t-gray{background:var(--fondo-2);color:var(--texto-3);border:1px solid var(--borde-m)}
+
+/* ── TOTAL BADGE ─────────────────────────────────────── */
+.total-badge{
+  display:none;align-items:center;gap:.5rem;
+  background:linear-gradient(135deg,var(--verde-bg),var(--teal-bg));
+  border:1.5px solid var(--verde-xl);border-radius:var(--rs);
+  padding:.45rem .7rem;margin-top:.4rem;flex-shrink:0;
+}
+.total-badge.show{display:flex;animation:scaleIn .3s cubic-bezier(.34,1.56,.64,1)}
+.total-n{font-weight:800;font-size:1.2rem;color:var(--verde);line-height:1;animation:numPop .4s ease}
+.total-l{font-weight:700;font-size:.7rem;color:var(--verde)}
+.total-s{font-size:.6rem;color:var(--texto-3)}
+
+/* ── COLS INFO ───────────────────────────────────────── */
+.cols-info{
+  background:var(--fondo-2);border:1px solid var(--borde);
+  border-radius:var(--rs);padding:.45rem .7rem;
+  font-size:.61rem;color:var(--texto-3);line-height:1.5;flex-shrink:0;
+  display:flex;align-items:flex-start;gap:.4rem;
+  transition:border-color var(--t),background var(--t);
+  animation:fadeUp .4s ease .08s both;
+}
+.cols-info:hover{border-color:var(--teal);background:var(--teal-bg)}
+.cols-info svg{width:13px;height:13px;flex-shrink:0;margin-top:.1rem;color:var(--teal)}
+.cols-info strong{color:var(--texto-2);font-weight:600}
+
+/* ── INPUT ───────────────────────────────────────────── */
+.inp-label{font-size:.66rem;font-weight:600;color:var(--texto-2);display:flex;align-items:center;gap:.3rem;margin-bottom:.35rem}
+.inp-label svg{width:12px;height:12px;color:var(--texto-3)}
+.inp{
+  width:100%;padding:.58rem .8rem;
+  background:var(--fondo);border:1.5px solid var(--borde-m);
+  border-radius:var(--rs);color:var(--texto);
+  font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:500;
+  outline:none;transition:all .25s cubic-bezier(.4,0,.2,1);
+}
+.inp:focus{border-color:var(--verde);background:var(--blanco);box-shadow:0 0 0 3px rgba(22,163,74,.12),var(--sh-s);transform:none}
+.inp::placeholder{color:var(--texto-4);font-weight:400}
+.inp-hint{font-size:.6rem;color:var(--texto-4);margin-top:.25rem;display:flex;align-items:center;gap:.25rem;transition:color .2s}
+.inp:focus~.inp-hint{color:var(--naranja)}
+.inp-hint svg{width:11px;height:11px;color:var(--naranja)}
+
+/* ── STATS ───────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.45rem;flex-shrink:0}
+.stat{
+  background:var(--blanco);border:1.5px solid var(--borde);
+  border-radius:var(--rs);padding:.55rem .4rem .48rem;
+  text-align:center;position:relative;overflow:hidden;
+  transition:transform .2s cubic-bezier(.34,1.56,.64,1),box-shadow .2s,border-color .2s;
+  cursor:default;
+}
+.stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0}
+.s-v::before{background:linear-gradient(90deg,var(--verde),var(--verde-l))}
+.s-r::before{background:linear-gradient(90deg,var(--rojo),#f87171)}
+.s-t::before{background:linear-gradient(90deg,var(--teal),#14b8a6)}
+.stat:hover{transform:translateY(-2px);box-shadow:var(--sh-m)}
+.s-v:hover{border-color:var(--verde-xl)} .s-r:hover{border-color:var(--rojo-bd)} .s-t:hover{border-color:rgba(13,148,136,.3)}
+.stat-n{font-weight:800;font-size:1.25rem;line-height:1;font-variant-numeric:tabular-nums;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+.stat-n.bump{animation:numPop .35s cubic-bezier(.34,1.56,.64,1)}
+.s-v .stat-n{color:var(--verde)} .s-r .stat-n{color:var(--rojo)} .s-t .stat-n{color:var(--teal)}
+.stat-l{font-size:.57rem;font-weight:600;color:var(--texto-4);text-transform:uppercase;letter-spacing:.04em;margin-top:.28rem;display:flex;align-items:center;justify-content:center;gap:.25rem}
+.stat-l svg{width:10px;height:10px}
+
+/* ── PROGRESO ────────────────────────────────────────── */
+.prog{background:var(--blanco);border:1.5px solid var(--borde);border-radius:var(--rs);padding:.65rem .8rem .55rem;flex-shrink:0;transition:border-color .2s,box-shadow .2s}
+.prog-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem}
+.prog-label{font-weight:700;font-size:.7rem;color:var(--texto-2);display:flex;align-items:center;gap:.3rem}
+.prog-label svg{width:12px;height:12px;color:var(--verde)}
+.prog-pct{font-weight:800;font-size:.72rem;color:var(--verde);font-variant-numeric:tabular-nums;transition:color .3s}
+.prog-track{height:7px;border-radius:100px;background:var(--fondo-2);border:1px solid var(--borde);overflow:hidden}
+.prog-fill{
+  height:100%;border-radius:100px;
+  background:linear-gradient(90deg,var(--verde),var(--teal));
+  width:0%;transition:width .6s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 0 10px rgba(22,163,74,.35);
+  position:relative;overflow:hidden;
+}
+.prog-fill::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:sh 2s ease-in-out infinite}
+.prog-info{font-size:.6rem;color:var(--texto-4);margin-top:.4rem;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
+
+/* ── SEPARADOR ───────────────────────────────────────── */
+.sep{height:1px;background:var(--borde);flex-shrink:0}
+
+/* ── BOTONES ─────────────────────────────────────────── */
+.btns{display:flex;gap:.5rem;flex-shrink:0;padding-top:.1rem}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  padding:.68rem 1rem;border-radius:var(--rs);
+  font-family:'Plus Jakarta Sans',sans-serif;
+  font-weight:700;font-size:.76rem;letter-spacing:.01em;
+  cursor:pointer;border:none;outline:none;
+  transition:all .22s cubic-bezier(.4,0,.2,1);white-space:nowrap;
+  position:relative;overflow:hidden;
+}
+.btn::after{
+  content:'';position:absolute;inset:0;
+  background:rgba(255,255,255,.12);
+  opacity:0;transition:opacity .15s;border-radius:var(--rs);
+}
+.btn:hover::after{opacity:1}
+.btn svg{width:14px;height:14px;flex-shrink:0}
+.btn-go{
+  flex:1;
+  background:linear-gradient(135deg,var(--verde),var(--teal));
+  color:#fff;box-shadow:0 2px 12px rgba(22,163,74,.32);
+}
+.btn-go:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 6px 20px rgba(22,163,74,.45)}
+.btn-go:active:not(:disabled){transform:translateY(0);box-shadow:0 2px 8px rgba(22,163,74,.3)}
+.btn-go:disabled{opacity:.42;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-stop{background:var(--blanco);color:var(--rojo);border:1.5px solid rgba(220,38,38,.3);padding:.68rem .8rem}
+.btn-stop:hover:not(:disabled){background:var(--rojo-bg);border-color:var(--rojo);transform:scale(1.06)}
+.btn-stop:disabled{opacity:.32;cursor:not-allowed}
+
+/* ── CONSOLA ─────────────────────────────────────────── */
+.consola{display:flex;flex-direction:column;background:var(--fondo);overflow:auto;animation:fadeIn .5s ease both}
+.con-hdr{
+  padding:.65rem 1.5rem .55rem;border-bottom:1px solid var(--borde);
+  display:flex;align-items:center;gap:.75rem;
+  background:var(--blanco);flex-shrink:0;
+}
+/* Indicador de estado (reemplaza los círculos mac) */
+.con-status{
+  display:flex;align-items:center;gap:.5rem;
+}
+.con-status-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--verde-l);
+  box-shadow:0 0 6px rgba(34,197,94,.5);
+  animation:pr 2s ease-in-out infinite;
+  flex-shrink:0;
+}
+.con-status-dot.idle{background:var(--texto-4);box-shadow:none;animation:none}
+.con-status-label{font-size:.6rem;font-weight:600;color:var(--texto-4);text-transform:uppercase;letter-spacing:.05em}
+
+.con-title{font-weight:700;font-size:.74rem;color:var(--texto-2)}
+.con-acts{margin-left:auto;display:flex;gap:.4rem;align-items:center}
+.con-btn{
+  padding:.24rem .6rem;border-radius:5px;
+  background:var(--fondo-2);border:1px solid var(--borde);
+  font-size:.62rem;font-weight:600;color:var(--texto-3);
+  cursor:pointer;transition:all var(--t);font-family:'Plus Jakarta Sans',sans-serif;
+  display:flex;align-items:center;gap:.3rem;
+}
+.con-btn svg{width:11px;height:11px;transition:transform .2s}
+.con-btn:hover{background:var(--borde);color:var(--texto-2)}
+.con-btn:hover svg{transform:scale(1.2)}
+
+.con-body{flex:1;overflow-y:auto;padding:.65rem 1.5rem;font-family:'JetBrains Mono',monospace;font-size:.68rem;line-height:1.85}
+.con-body::-webkit-scrollbar{width:4px}
+.con-body::-webkit-scrollbar-track{background:transparent}
+.con-body::-webkit-scrollbar-thumb{background:var(--borde-m);border-radius:2px}
+
+.log-line{
+  display:flex;gap:.55rem;align-items:baseline;
+  padding:.16rem 0;border-bottom:1px solid rgba(226,232,240,.55);
+  animation:li .18s cubic-bezier(.4,0,.2,1);
+}
+[data-theme="dark"] .log-line{border-bottom-color:rgba(30,45,69,.5)}
+.log-t{color:var(--texto-4);font-size:.59rem;flex-shrink:0;min-width:56px;font-variant-numeric:tabular-nums}
+.log-b{flex-shrink:0;padding:.03rem .36rem;border-radius:3px;font-size:.57rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.lb-i{background:rgba(2,132,199,.1);color:var(--azul)}
+.lb-s{background:rgba(22,163,74,.1);color:var(--verde)}
+.lb-e{background:rgba(220,38,38,.1);color:var(--rojo)}
+.lb-w{background:rgba(217,119,6,.1);color:var(--naranja)}
+.log-m{flex:1;color:var(--texto-2);word-break:break-word;line-height:1.5}
+.log-m.s{color:var(--verde)}.log-m.e{color:var(--rojo)}.log-m.w{color:var(--naranja)}
+
+/* ── TOOLTIP ─────────────────────────────────────────── */
+#tooltip{
+  position:fixed;background:var(--texto);color:var(--fondo);
+  font-size:.63rem;font-weight:500;line-height:1.45;
+  max-width:200px;text-align:center;padding:.45rem .7rem;border-radius:7px;
+  box-shadow:var(--sh-m);pointer-events:none;opacity:0;
+  transition:opacity .15s,transform .15s;transform:translateY(4px);
+  z-index:9999;font-family:'Plus Jakarta Sans',sans-serif;white-space:normal;
+}
+#tooltip.show{opacity:1;transform:translateY(0)}
+
+/* ── MODAL ───────────────────────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);backdrop-filter:blur(12px);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem}
+.overlay.show{display:flex;animation:fadeIn .2s ease}
+.modal{
+  background:var(--blanco);border:1.5px solid var(--borde);
+  border-radius:18px;padding:1.75rem 1.75rem 1.5rem;
+  max-width:420px;width:100%;box-shadow:var(--sh-l);
+  animation:mi .35s cubic-bezier(.34,1.56,.64,1);
+}
+.m-top{text-align:center;margin-bottom:1.35rem}
+.m-ico{
+  width:60px;height:60px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto .75rem;
+  animation:bi .5s cubic-bezier(.34,1.56,.64,1) .08s both;
+  position:relative;
+}
+.m-ico::after{
+  content:'';position:absolute;inset:-4px;border-radius:20px;
+  border:2px solid currentColor;opacity:.15;
+}
+.m-ico svg{width:28px;height:28px}
+.m-ico.i-ok{background:var(--verde-bg);color:var(--verde)}
+.m-ico.i-warn{background:var(--naranja-bg);color:var(--naranja)}
+.m-ico.i-fail{background:var(--rojo-bg);color:var(--rojo)}
+.m-title{font-weight:800;font-size:1.15rem;color:var(--texto);margin-bottom:.28rem;letter-spacing:-.01em;animation:fadeUp .3s .2s both}
+.m-sub{font-size:.72rem;color:var(--texto-3);animation:fadeUp .3s .28s both}
+.m-grid{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:1.1rem}
+.m-stat{
+  background:var(--fondo);border:1.5px solid var(--borde);
+  border-radius:var(--rs);padding:.75rem;text-align:center;
+  animation:fadeUp .3s ease both;
+  transition:transform .2s,box-shadow .2s;
+}
+.m-stat:nth-child(1){animation-delay:.15s}
+.m-stat:nth-child(2){animation-delay:.2s}
+.m-stat:nth-child(3){animation-delay:.25s}
+.m-stat:nth-child(4){animation-delay:.3s}
+.m-stat:hover{transform:translateY(-2px);box-shadow:var(--sh-s)}
+.m-num{font-weight:800;font-size:1.7rem;line-height:1;font-variant-numeric:tabular-nums}
+.m-lbl{font-size:.59rem;font-weight:600;color:var(--texto-4);text-transform:uppercase;letter-spacing:.07em;margin-top:.28rem}
+.m-btns{display:flex;flex-direction:column;gap:.5rem;animation:fadeUp .3s .38s both}
+.btn-dl{
+  display:flex;align-items:center;justify-content:center;gap:.5rem;
+  padding:.72rem;border-radius:var(--rs);
+  background:var(--naranja-bg);border:1.5px solid rgba(217,119,6,.3);
+  color:var(--naranja);font-weight:700;font-size:.75rem;
+  text-decoration:none;transition:all var(--t);
+}
+.btn-dl svg{width:15px;height:15px}
+.btn-dl:hover{background:rgba(217,119,6,.12);border-color:var(--naranja);transform:translateY(-2px);box-shadow:0 4px 12px rgba(217,119,6,.2)}
+.btn-cx{
+  padding:.68rem;border-radius:var(--rs);
+  background:var(--fondo-2);border:1.5px solid var(--borde);
+  color:var(--texto-3);font-weight:600;font-size:.72rem;
+  cursor:pointer;transition:all var(--t);font-family:'Plus Jakarta Sans',sans-serif;
+  display:flex;align-items:center;justify-content:center;gap:.4rem;
+}
+.btn-cx svg{width:13px;height:13px}
+.btn-cx:hover{background:var(--borde);color:var(--texto-2)}
+
+.spinner{width:12px;height:12px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .65s linear infinite;flex-shrink:0}
+
+/* ── RESPONSIVE ──────────────────────────────────────── */
+@media(max-width:1100px){
+  .grid{grid-template-columns:1fr}
+  .sidebar{border-right:none;border-bottom:1px solid var(--borde)}
+}
+@media(max-width:600px){
+  .menu-btn{display:flex}
+  .sidebar-close{display:flex}
+  .sidebar{
+    position:fixed;top:0;left:0;height:100%;width:280px;
+    padding:.5rem;transform:translateX(-100%);
+    z-index:1000;box-shadow:0 0 24px rgba(0,0,0,.25);
+    border-bottom:none;overflow-y:auto;
+  }
+  .sidebar.open{transform:translateX(0)}
+  .bloque{padding:.6rem}
+  .stats{grid-template-columns:1fr 1fr}
+  .stat-n{font-size:1rem}
+  .btns{flex-direction:column}
+  .btn-go,.btn-stop{width:100%}
+  .con-body{font-size:.62rem;padding:.5rem}
+}
+</style>
+</head>
+<body>
+
+<div id="tooltip"></div>
+<div class="menu-overlay" id="menu-overlay" onclick="toggleMenu()"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="menu-btn" id="menu-btn" onclick="toggleMenu()" data-tip="Abrir menú lateral">
+    <svg class="ico" width="18" height="18" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+  </div>
+  <div class="logo-mark">ALP</div>
+  <div class="logo-info">
+    <strong>Registro Masivo</strong>
+    <span>Alternativa Liberal Popular</span>
+  </div>
+  <div class="hdr-right">
+    <div class="pill" id="pill">
+      <div class="puntito"></div>
+      <span id="pill-txt">Listo</span>
+    </div>
+    <div class="icon-btn" id="theme-btn" onclick="toggleTheme()" data-tip="Cambiar entre modo claro y oscuro">
+      <svg class="ico" id="ico-theme" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+    </div>
+  </div>
+</header>
+
+<div class="grid">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-close" onclick="toggleMenu()" data-tip="Cerrar menú">
+      <svg class="ico" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </div>
+
+    <!-- PASO 1 -->
+    <div class="bloque">
+      <div class="bloque-title">
+        <div class="num-badge">1</div>
+        Selecciona tu archivo Excel
+      </div>
+      <div class="drop" id="drop" onclick="document.getElementById('fi').click()"
+        data-tip="Haz clic o arrastra tu archivo .xlsx aquí. El sistema verificará las columnas automáticamente.">
+        <div class="drop-ico" id="d-ico">
+          <svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+        </div>
+        <div class="drop-tit" id="d-tit">Arrastra tu Excel aquí</div>
+        <div class="drop-sub" id="d-sub">
+          o haz clic para buscar &nbsp;·&nbsp;
+          <span class="fmt">.xlsx</span><span class="fmt">.xls</span>
+        </div>
+        <input type="file" id="fi" accept=".xlsx,.xls">
+      </div>
+      <div class="res" id="res">
+        <div class="res-head" id="res-head"></div>
+        <div id="res-body"></div>
+      </div>
+      <div class="total-badge" id="total-badge">
+        <div class="total-n" id="total-n">0</div>
+        <div>
+          <div class="total-l">personas listas</div>
+          <div class="total-s">para registrar</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INFO COLUMNAS -->
+    <div class="cols-info" data-tip="Los encabezados pueden tener tildes o minúsculas. El sistema los detecta automáticamente.">
+      <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div><strong>Columnas necesarias:</strong> CEDULA · NOMBRES · APELLIDOS · TELEFONO · DIRECCION · DEPARTAMENTO · MUNICIPIO</div>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- PASO 2 -->
+    <div class="bloque">
+      <div class="bloque-title">
+        <div class="num-badge">2</div>
+        Código de quien invita
+      </div>
+      <div data-tip="Este código se registrará en cada persona como 'quién la invitó' al partido.">
+        <div class="inp-label">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Código de referido <span style="color:var(--rojo);margin-left:.2rem">*</span>
+        </div>
+        <input type="text" id="ref" class="inp" placeholder="Ej: ALP-2024-001" autocomplete="off" spellcheck="false">
+        <div class="inp-hint">
+          <svg class="ico" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Obligatorio para iniciar
+        </div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- PASO 3 -->
+    <div>
+      <div class="bloque-title" style="margin-bottom:.45rem">
+        <div class="num-badge">3</div>
+        Estado del proceso
+      </div>
+      <div class="stats">
+        <div class="stat s-v" data-tip="Personas registradas exitosamente en el portal.">
+          <div class="stat-n" id="st-ex">0</div>
+          <div class="stat-l">
+            <svg class="ico" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Exitosos
+          </div>
+        </div>
+        <div class="stat s-r" data-tip="Registros fallidos. Se reintentan automáticamente.">
+          <div class="stat-n" id="st-er">0</div>
+          <div class="stat-l">
+            <svg class="ico" viewBox="0 0 24 24" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Fallidos
+          </div>
+        </div>
+        <div class="stat s-t" data-tip="Total de personas en el archivo cargado.">
+          <div class="stat-n" id="st-to">0</div>
+          <div class="stat-l">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Total
+          </div>
+        </div>
+      </div>
+
+      <div class="prog" style="margin-top:.45rem" data-tip="Avance del proceso. Reintenta los fallidos automáticamente al terminar.">
+        <div class="prog-hdr">
+          <span class="prog-label">
+            <svg class="ico" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            Progreso
+          </span>
+          <span class="prog-pct" id="prog-pct">0%</span>
+        </div>
+        <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+        <div class="prog-info" id="prog-info">Esperando para comenzar...</div>
+      </div>
+    </div>
+
+    <!-- BOTONES -->
+    <div class="btns">
+      <button class="btn btn-go" id="btn-go" onclick="iniciar()" disabled
+        data-tip="Carga el Excel y escribe el código de referido para habilitar.">
+        <span id="btn-txt" style="display:flex;align-items:center;gap:.4rem">
+          <svg class="ico" width="14" height="14" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Iniciar registro
+        </span>
+      </button>
+      <button class="btn btn-stop" id="btn-stop" onclick="cancelar()" disabled
+        data-tip="Detiene el proceso. Los registros ya enviados no se pierden.">
+        <svg class="ico" width="14" height="14" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- CONSOLA -->
+  <main class="consola">
+    <div class="con-hdr">
+      <!-- Indicador de estado (reemplaza los círculos) -->
+      <div class="con-status">
+        <div class="con-status-dot" id="con-dot"></div>
+        <span class="con-status-label" id="con-status-lbl">En línea</span>
+      </div>
+      <span class="con-title">Registro de actividad</span>
+      <div class="con-acts">
+        <button class="con-btn" onclick="limpiar()" data-tip="Borra todos los mensajes visibles">
+          <svg class="ico" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6M9 6V4h6v2"/></svg>
+          Limpiar
+        </button>
+        <button class="con-btn" id="scroll-btn" onclick="toggleScroll()" data-tip="Activar o pausar scroll automático">
+          <svg class="ico" id="ico-scroll" viewBox="0 0 24 24"><polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/></svg>
+          Auto-scroll
+        </button>
+      </div>
+    </div>
+    <div class="con-body" id="con">
+      <div class="log-line">
+        <span class="log-t">00:00:00</span>
+        <span class="log-b lb-i">INFO</span>
+        <span class="log-m">Sistema listo. Carga tu archivo Excel para comenzar.</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="m-top">
+      <div class="m-ico i-ok" id="m-ico"></div>
+      <div class="m-title" id="m-title">¡Proceso completado!</div>
+      <div class="m-sub" id="m-sub"></div>
+    </div>
+    <div class="m-grid" id="m-grid"></div>
+    <div class="m-btns" id="m-btns"></div>
+  </div>
+</div>
+
+<script>
+// ── SVG ICONS ─────────────────────────────────────────────
+const I = {
+  check:    `<svg class="ico" viewBox="0 0 24 24" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
+  x:        `<svg class="ico" viewBox="0 0 24 24" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+  warn:     `<svg class="ico" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  excel:    `<svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>`,
+  loader:   `<svg class="ico" viewBox="0 0 24 24" style="animation:sp .8s linear infinite"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>`,
+  stars:    `<svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+  download: `<svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+  moon:     `<svg class="ico" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>`,
+  sun:      `<svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+  play:     `<svg class="ico" width="14" height="14" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>`,
+};
+
+function setDropIco(type){
+  const el=document.getElementById('d-ico');
+  el.className='drop-ico';
+  const map={
+    default:[I.excel,''],
+    loading:[I.loader,'c-load'],
+    ok:     [I.check,'c-ok'],
+    fail:   [I.x,'c-fail'],
+    warn:   [I.warn,'c-warn'],
+  };
+  const[svg,cls]=map[type]||map.default;
+  if(cls)el.classList.add(cls);
+  el.innerHTML=svg;
+}
+
+// ── BUMP animation on stat numbers ────────────────────────
+function bumpStat(id,val){
+  const el=document.getElementById(id);
+  el.textContent=val;
+  el.classList.remove('bump');
+  void el.offsetWidth; // reflow
+  el.classList.add('bump');
+}
+
+// ── TOOLTIP ───────────────────────────────────────────────
+const tip=document.getElementById('tooltip');
+let tipTimeout;
+document.querySelectorAll('[data-tip]').forEach(el=>{
+  el.addEventListener('mouseenter',e=>{
+    clearTimeout(tipTimeout);
+    tip.textContent=el.getAttribute('data-tip');
+    tip.classList.add('show');
+    posTip(e);
+  });
+  el.addEventListener('mousemove',posTip);
+  el.addEventListener('mouseleave',()=>{tipTimeout=setTimeout(()=>tip.classList.remove('show'),100)});
+});
+function posTip(e){
+  const m=14,w=tip.offsetWidth||180,h=tip.offsetHeight||40;
+  let x=e.clientX-w/2,y=e.clientY-h-m;
+  if(y<6)y=e.clientY+m;if(x<6)x=6;
+  if(x+w>window.innerWidth-6)x=window.innerWidth-w-6;
+  tip.style.left=x+'px';tip.style.top=y+'px';
+}
+
+// ── SOCKET ────────────────────────────────────────────────
+const socket=io();
+let datosOk=false,enProceso=false,autoScroll=true;
+
+socket.on('connect',()=>{
+  log('Conexión establecida con el servidor.','s');
+  setConStatus(true);
+});
+socket.on('disconnect',()=>{
+  log('Se perdió la conexión con el servidor.','e');
+  setConStatus(false);
+});
+socket.on('log',d=>log(traducir(d.msg),d.tipo||'i'));
+
+socket.on('progreso',d=>{
+  bumpStat('st-ex',d.actual);
+  bumpStat('st-to',d.total);
+  document.getElementById('prog-fill').style.width=d.porcentaje+'%';
+  document.getElementById('prog-pct').textContent=d.porcentaje+'%';
+  if(d.cedula)document.getElementById('prog-info').textContent=`Procesando: ${d.cedula} — ${d.depto} / ${d.municipio}`;
+});
+socket.on('resumen',d=>{enProceso=false;setEstado(false);mostrarModal(d)});
+
+function setConStatus(online){
+  const dot=document.getElementById('con-dot');
+  const lbl=document.getElementById('con-status-lbl');
+  if(online){dot.className='con-status-dot';lbl.textContent='En línea'}
+  else{dot.className='con-status-dot idle';lbl.textContent='Desconectado'}
+}
+
+function traducir(msg){
+  if(!msg)return msg;
+  if(msg.includes('ERR_CONNECTION_TIMED_OUT'))return 'No se pudo conectar al portal. Verifica tu conexión.';
+  if(msg.includes('ERR_CONNECTION_REFUSED'))return 'El portal rechazó la conexión. Intenta en unos minutos.';
+  if(msg.includes('session not created'))return 'Problema al abrir Chrome. Reinicia el proceso.';
+  if(msg.includes('net::ERR'))return 'Error de red. Verifica tu conexión a internet.';
+  if(msg.includes('TimeoutException'))return 'El portal tardó demasiado. Se reintentará automáticamente.';
+  if(msg.includes('NoSuchElement'))return 'No se encontró un campo en el formulario del portal.';
+  if(msg.includes('ElementClickIntercepted'))return 'No se pudo hacer clic en un botón del formulario.';
+  if(msg.includes('Stacktrace')||msg.includes('Symbols not available'))return 'Error al procesar el registro. Se reintentará automáticamente.';
+  if(msg.includes('Error crítico')||msg.includes('💥'))return msg.replace('Error crítico:','').replace('💥','').split('Stacktrace')[0].trim();
+  return msg;
+}
+
+// ── DRAG & DROP ───────────────────────────────────────────
+const dz=document.getElementById('drop');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over')});
+dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');if(e.dataTransfer.files[0])cargar(e.dataTransfer.files[0])});
+document.getElementById('fi').addEventListener('change',e=>{if(e.target.files[0])cargar(e.target.files[0])});
+
+// ── EXCEL ─────────────────────────────────────────────────
+function cargar(file){
+  datosOk=false;checkBtn();resetRes();
+  setDropIco('loading');
+  document.getElementById('d-tit').textContent='Revisando archivo...';
+  document.getElementById('d-sub').innerHTML=`<span class="filename" style="color:var(--texto-3)">${file.name}</span>`;
+  dz.classList.remove('ok','fail');
+  const fd=new FormData();fd.append('file',file);
+  fetch('/validar-excel',{method:'POST',body:fd})
+    .then(r=>r.json())
+    .then(d=>{if(d.ok)excelOk(d,file.name);else excelFail(d,file.name)})
+    .catch(()=>{
+      dz.classList.add('fail');setDropIco('warn');
+      document.getElementById('d-tit').textContent='Sin conexión con el servidor';
+      log('No hay conexión con el servidor. Verifica que la app esté corriendo.','e');
+    });
+}
+
+function excelOk(data,nombre){
+  dz.classList.add('ok');setDropIco('ok');
+  document.getElementById('d-tit').textContent=nombre;
+  document.getElementById('d-sub').innerHTML=`<span style="color:var(--verde);font-weight:600">${data.total} personas · Todo correcto</span>`;
+  const r=document.getElementById('res');r.className='res ok';
+  document.getElementById('res-head').className='res-head ok-c';
+  document.getElementById('res-head').innerHTML=I.check+'&nbsp;Archivo válido — columnas encontradas';
+  document.getElementById('res-body').innerHTML='<div class="tags">'+data.columnas.map((c,i)=>`<span class="tag t-ok" style="animation-delay:${i*0.04}s">${c}</span>`).join('')+'</div>';
+  document.getElementById('total-n').textContent=data.total;
+  document.getElementById('total-badge').classList.add('show');
+  bumpStat('st-to',data.total);
+  datosOk=true;checkBtn();
+  log(`Archivo cargado: "${nombre}" · ${data.total} personas detectadas.`,'s');
+}
+
+function excelFail(data,nombre){
+  dz.classList.add('fail');setDropIco('fail');
+  document.getElementById('d-tit').textContent='El archivo tiene un problema';
+  document.getElementById('d-sub').innerHTML=`<span class="filename" style="color:var(--rojo)">${nombre}</span>`;
+  const r=document.getElementById('res');r.className='res fail';
+  document.getElementById('res-head').className='res-head fail-c';
+  if(data.faltantes){
+    document.getElementById('res-head').innerHTML=I.x+'&nbsp;Faltan columnas en el archivo';
+    document.getElementById('res-body').innerHTML=
+      '<div style="font-size:.62rem;color:var(--texto-2);margin-bottom:.3rem">Columnas que tiene:</div>'+
+      '<div class="tags">'+(data.encontradas||[]).map(c=>`<span class="tag ${data.faltantes.includes(c)?'t-gray':'t-ok'}">${c}</span>`).join('')+'</div>'+
+      '<div style="font-size:.62rem;color:var(--rojo);font-weight:600;margin:.4rem 0 .28rem">Columnas que faltan:</div>'+
+      '<div class="tags">'+data.faltantes.map(c=>`<span class="tag t-fail">${c}</span>`).join('')+'</div>';
+  } else {
+    document.getElementById('res-head').innerHTML=I.x+'&nbsp;'+(data.error||'No se pudo leer el archivo');
+    document.getElementById('res-body').innerHTML='';
+  }
+  log(`Archivo rechazado: ${data.error||'faltan columnas'}.`,'e');
+}
+
+function resetRes(){
+  document.getElementById('res').className='res';
+  document.getElementById('total-badge').classList.remove('show');
+  setDropIco('default');
+  document.getElementById('d-tit').textContent='Arrastra tu Excel aquí';
+  document.getElementById('d-sub').innerHTML='o haz clic para buscar &nbsp;·&nbsp;<span class="fmt">.xlsx</span><span class="fmt">.xls</span>';
+}
+
+// ── CONTROLES ─────────────────────────────────────────────
+function checkBtn(){
+  const ref=document.getElementById('ref').value.trim();
+  const btn=document.getElementById('btn-go');
+  const ok=datosOk&&ref&&!enProceso;
+  btn.disabled=!ok;
+  if(ok) btn.style.animation='glow 2.5s ease-in-out infinite';
+  else btn.style.animation='';
+}
+document.getElementById('ref').addEventListener('input',checkBtn);
+
+function iniciar(){
+  const ref=document.getElementById('ref').value.trim();
+  if(!ref||!datosOk)return;
+  if(!confirm(`¿Iniciar el registro masivo?\n\nCódigo de referido: ${ref}\n\nEste proceso puede tomar varios minutos.`))return;
+  enProceso=true;setEstado(true);
+  bumpStat('st-ex','0');
+  bumpStat('st-er','0');
+  document.getElementById('prog-fill').style.width='0%';
+  document.getElementById('prog-pct').textContent='0%';
+  document.getElementById('prog-info').textContent='Iniciando...';
+  fetch('/iniciar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({codigo_referido:ref})})
+    .then(r=>r.json()).then(d=>{if(!d.ok){log('Error: '+d.error,'e');enProceso=false;setEstado(false)}});
+}
+
+function cancelar(){
+  if(!confirm('¿Detener el proceso?\n\nLos registros ya enviados NO se perderán.'))return;
+  fetch('/cancelar',{method:'POST'});
+}
+
+function setEstado(activo){
+  const pill=document.getElementById('pill'),txt=document.getElementById('pill-txt');
+  const go=document.getElementById('btn-go'),stop=document.getElementById('btn-stop');
+  const bt=document.getElementById('btn-txt');
+  if(activo){
+    pill.classList.add('on');txt.textContent='Procesando';
+    go.disabled=true;go.style.animation='';
+    bt.innerHTML='<span class="spinner"></span>&nbsp;Procesando...';
+    stop.disabled=false;
+  } else {
+    pill.classList.remove('on');txt.textContent='Listo';
+    bt.innerHTML=I.play+' Iniciar registro';
+    stop.disabled=true;checkBtn();
+  }
+}
+
+// ── CONSOLA ───────────────────────────────────────────────
+const bMap={i:'lb-i',s:'lb-s',e:'lb-e',w:'lb-w',info:'lb-i',success:'lb-s',error:'lb-e',warning:'lb-w'};
+const lMap={i:'INFO',s:'OK',e:'ERR',w:'AVISO',info:'INFO',success:'OK',error:'ERR',warning:'AVISO'};
+
+function log(msg,tipo='i'){
+  const c=document.getElementById('con');
+  const t=new Date().toTimeString().slice(0,8);
+  const d=document.createElement('div');
+  d.className='log-line';
+  const cls=['s','e','w','success','error','warning'].includes(tipo)?tipo[0]:'';
+  d.innerHTML=`<span class="log-t">${t}</span><span class="log-b ${bMap[tipo]||'lb-i'}">${lMap[tipo]||'INFO'}</span><span class="log-m ${cls}">${msg}</span>`;
+  c.appendChild(d);
+  if(autoScroll)c.scrollTop=c.scrollHeight;
+}
+
+function limpiar(){
+  const c=document.getElementById('con');
+  c.style.opacity='0';c.style.transform='translateY(-4px)';
+  c.style.transition='opacity .2s,transform .2s';
+  setTimeout(()=>{
+    c.innerHTML='';
+    c.style.opacity='1';c.style.transform='none';
+    log('Pantalla limpiada.','i');
+  },200);
+}
+
+function toggleScroll(){
+  autoScroll=!autoScroll;
+  const ico=document.getElementById('ico-scroll');
+  const btn=document.getElementById('scroll-btn');
+  if(autoScroll){
+    ico.innerHTML='<polyline points="17 11 12 6 7 11"/><polyline points="17 18 12 13 7 18"/>';
+    btn.style.color='';
+  } else {
+    ico.innerHTML='<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 19 19 12 12 5"/>';
+    btn.style.color='var(--naranja)';
+  }
+}
+
+// ── MODAL ─────────────────────────────────────────────────
+function mostrarModal(d){
+  const{exitos,definitivos:fall,errores,total,tiene_errores_xlsx}=d;
+  const ico=document.getElementById('m-ico');
+  if(fall===0){ico.className='m-ico i-ok';ico.innerHTML=I.stars;document.getElementById('m-title').textContent='¡Todo listo!'}
+  else if(fall<total){ico.className='m-ico i-warn';ico.innerHTML=I.warn;document.getElementById('m-title').textContent='Completado con algunos errores'}
+  else{ico.className='m-ico i-fail';ico.innerHTML=I.x;document.getElementById('m-title').textContent='No se pudo completar'}
+  document.getElementById('m-sub').textContent=`${exitos} de ${total} personas registradas correctamente.`;
+  document.getElementById('m-grid').innerHTML=[
+    [exitos,'var(--verde)','Registradas'],[fall,'var(--rojo)','Sin registrar'],
+    [errores,'var(--naranja)','Reintentadas'],[total,'var(--teal)','Total'],
+  ].map(([n,c,l])=>`<div class="m-stat"><div class="m-num" style="color:${c}">${n}</div><div class="m-lbl">${l}</div></div>`).join('');
+  bumpStat('st-er',fall);
+  let btns=`<button class="btn-cx" onclick="cerrarModal()">${I.x} Cerrar</button>`;
+  if(tiene_errores_xlsx)btns=`<a href="/descargar-errores" class="btn-dl">${I.download} Descargar no registradas (${fall})</a>`+btns;
+  document.getElementById('m-btns').innerHTML=btns;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function cerrarModal(){document.getElementById('overlay').classList.remove('show')}
+document.getElementById('overlay').addEventListener('click',e=>{if(e.target===document.getElementById('overlay'))cerrarModal()});
+
+// ── TEMA ──────────────────────────────────────────────────
+function toggleTheme(){
+  const html=document.documentElement;
+  const dark=html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme',dark?'light':'dark');
+  const btn=document.getElementById('theme-btn');
+  btn.style.transform='rotate(360deg) scale(1.2)';
+  btn.innerHTML=dark?I.moon:I.sun;
+  setTimeout(()=>btn.style.transform='',400);
+}
+
+// ── MENÚ MÓVIL ────────────────────────────────────────────
+function toggleMenu(){
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('menu-overlay').classList.toggle('show');
+}
+</script>
+</body>
+</html>
